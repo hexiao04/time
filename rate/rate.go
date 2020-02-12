@@ -29,6 +29,14 @@ func Every(interval time.Duration) Limit {
 	return 1 / Limit(interval.Seconds())
 }
 
+var timers = sync.Pool{
+	New: func() interface{} {
+		t := time.NewTimer(time.Hour)
+		t.Stop()
+		return t
+	},
+}
+
 // A Limiter controls how frequently events are allowed to happen.
 // It implements a "token bucket" of size b, initially full and refilled
 // at rate r tokens per second.
@@ -253,10 +261,14 @@ func (lim *Limiter) WaitN(ctx context.Context, n int) (err error) {
 	if delay == 0 {
 		return nil
 	}
-	t := time.NewTimer(delay)
-	defer t.Stop()
+	timer := timers.Get().(*time.Timer)
+	timer.Reset(delay)
+	defer func(){
+		timer.Stop()
+		timers.Put(timer)
+	}()
 	select {
-	case <-t.C:
+	case <-timer.C:
 		// We can proceed.
 		return nil
 	case <-ctx.Done():
