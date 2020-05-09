@@ -1,1 +1,1 @@
-module golang.org/x/time
+module github.com/hexiao04/time
